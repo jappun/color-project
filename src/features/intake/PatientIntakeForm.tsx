@@ -93,6 +93,24 @@ const fieldRing =
 const fieldRingError =
   'border-rose-400 focus:border-rose-500 focus:ring-rose-200/55'
 
+/** Matches cancer-type combobox: border, radius, fill, type scale, padding, shadow, focus */
+const fieldShellBase =
+  'w-full min-w-0 rounded-2xl border bg-stone-50/80 px-4 py-3 text-base leading-normal text-stone-900 shadow-inner shadow-stone-900/5 outline-none transition placeholder:text-stone-400'
+
+const numberInputNoSpin =
+  '[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
+
+const selectChevronLayout =
+  'cursor-pointer appearance-none bg-[length:1rem] bg-[right_1rem_center] bg-no-repeat pr-11'
+
+function fieldShellClassName(hasError: boolean): string {
+  return `${fieldShellBase} ${
+    hasError
+      ? `border-rose-400 ${fieldRingError}`
+      : `border-stone-200 ${fieldRing}`
+  }`
+}
+
 type PatientIntakeFormProps = {
   onSubmitSuccess?: (payload: PatientIntakePayload) => void
 }
@@ -305,12 +323,10 @@ export function PatientIntakeForm({ onSubmitSuccess }: PatientIntakeFormProps) {
   }
 
   const cancerErr = errors.cancerType
-  const cancerInputClass = cancerErr
-    ? `w-full rounded-2xl border bg-stone-50/80 px-4 py-3 text-stone-900 shadow-inner shadow-stone-900/5 outline-none transition placeholder:text-stone-400 ${fieldRingError}`
-    : `w-full rounded-2xl border border-stone-200 bg-stone-50/80 px-4 py-3 text-stone-900 shadow-inner shadow-stone-900/5 outline-none transition placeholder:text-stone-400 ${fieldRing}`
+  const cancerInputClass = fieldShellClassName(Boolean(cancerErr))
 
   return (
-    <div className="w-full max-w-lg">
+    <div className="w-full min-w-0 lg:mx-auto lg:max-w-xl">
       <div
         role="status"
         className="mb-6 rounded-2xl border border-violet-400/35 bg-violet-100/90 px-4 py-3 text-center text-sm font-medium text-violet-950 shadow-sm shadow-violet-950/10"
@@ -324,8 +340,7 @@ export function PatientIntakeForm({ onSubmitSuccess }: PatientIntakeFormProps) {
             Tell us a bit about you
           </h1>
           <p className="mt-2 text-[0.95rem] leading-relaxed text-stone-600">
-            This helps your care team prepare resources that fit your situation.
-            You can skip anything you are not comfortable sharing yet.
+            This is only for you to understand your situation. It does not store or send any data to your care team.
           </p>
         </header>
 
@@ -431,9 +446,7 @@ export function PatientIntakeForm({ onSubmitSuccess }: PatientIntakeFormProps) {
                 placeholder="e.g. pancreatic, ovarian…"
                 aria-invalid={Boolean(errors.otherCancer)}
                 aria-describedby={errors.otherCancer ? err.other : undefined}
-                className={`w-full rounded-2xl border bg-stone-50/80 px-4 py-3 text-stone-900 shadow-inner shadow-stone-900/5 outline-none transition placeholder:text-stone-400 focus:bg-white focus:ring-4 ${
-                  errors.otherCancer ? fieldRingError : `border-stone-200 ${fieldRing}`
-                }`}
+                className={fieldShellClassName(Boolean(errors.otherCancer))}
               />
               {errors.otherCancer ? (
                 <p id={err.other} className="text-xs text-rose-600" role="alert">
@@ -459,11 +472,7 @@ export function PatientIntakeForm({ onSubmitSuccess }: PatientIntakeFormProps) {
               }}
               aria-invalid={Boolean(errors.stage)}
               aria-describedby={errors.stage ? err.stage : undefined}
-              className={`w-full cursor-pointer appearance-none rounded-2xl border bg-stone-50/80 bg-[length:1rem] bg-[right_1rem_center] bg-no-repeat px-4 py-3 pr-11 text-stone-900 outline-none transition ${
-                errors.stage
-                  ? fieldRingError
-                  : `border-stone-200 ${fieldRing}`
-              }`}
+              className={`${fieldShellClassName(Boolean(errors.stage))} ${selectChevronLayout}`}
               style={{ backgroundImage: SELECT_CHEVRON }}
             >
               <option value="">Select stage</option>
@@ -501,9 +510,7 @@ export function PatientIntakeForm({ onSubmitSuccess }: PatientIntakeFormProps) {
               placeholder="e.g. 45"
               aria-invalid={Boolean(errors.age)}
               aria-describedby={errors.age ? err.age : undefined}
-              className={`w-full rounded-2xl border bg-stone-50/80 px-4 py-3 text-stone-900 outline-none transition placeholder:text-stone-400 ${
-                errors.age ? fieldRingError : `border-stone-200 ${fieldRing}`
-              }`}
+              className={`${fieldShellClassName(Boolean(errors.age))} ${numberInputNoSpin}`}
             />
             {errors.age ? (
               <p id={err.age} className="text-xs text-rose-600" role="alert">
@@ -528,9 +535,7 @@ export function PatientIntakeForm({ onSubmitSuccess }: PatientIntakeFormProps) {
               }}
               aria-invalid={Boolean(errors.sex)}
               aria-describedby={errors.sex ? err.sex : undefined}
-              className={`w-full cursor-pointer appearance-none rounded-2xl border bg-stone-50/80 bg-[length:1rem] bg-[right_1rem_center] bg-no-repeat px-4 py-3 pr-11 text-stone-900 outline-none transition ${
-                errors.sex ? fieldRingError : `border-stone-200 ${fieldRing}`
-              }`}
+              className={`${fieldShellClassName(Boolean(errors.sex))} ${selectChevronLayout}`}
               style={{ backgroundImage: SELECT_CHEVRON }}
             >
               <option value="">Select</option>

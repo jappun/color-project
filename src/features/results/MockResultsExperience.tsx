@@ -70,10 +70,10 @@ export function MockResultsExperience() {
   }
 
   return (
-    <div className="relative w-full max-w-2xl pb-28 sm:pb-24">
+    <div className="relative w-full min-w-0 pb-28 sm:pb-24 lg:mx-auto lg:max-w-3xl">
       {showTabs ? (
         <nav
-          className="sticky top-0 z-40 -mx-1 mb-8 border-b border-violet-200/60 bg-[#f4f0fb]/90 px-1 pb-3 pt-1 backdrop-blur-md"
+          className="sticky top-0 z-40 -mx-1 mb-8  px-1 pb-3 pt-1"
           aria-label="Results sections"
         >
           <div className="flex flex-wrap gap-1 rounded-2xl bg-white/50 p-1 shadow-sm shadow-violet-950/5">
