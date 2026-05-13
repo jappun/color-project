@@ -13,7 +13,7 @@ const CANCER_TYPES = [
   { value: 'colorectal', label: 'Colorectal cancer' },
   { value: 'prostate', label: 'Prostate cancer' },
   { value: 'melanoma', label: 'Melanoma' },
-  { value: 'other', label: 'Other / not listed' },
+  // { value: 'other', label: 'Other / not listed' },
 ] as const
 
 type CancerTypeValue = (typeof CANCER_TYPES)[number]['value']
@@ -427,7 +427,7 @@ export function PatientIntakeForm({ onSubmitSuccess }: PatientIntakeFormProps) {
             ) : null}
           </div>
 
-          {cancerType === 'other' ? (
+          {/* {cancerType === 'other' ? (
             <div className="space-y-2">
               <label
                 htmlFor={`${formId}-other-cancer`}
@@ -454,7 +454,7 @@ export function PatientIntakeForm({ onSubmitSuccess }: PatientIntakeFormProps) {
                 </p>
               ) : null}
             </div>
-          ) : null}
+          ) : null} */}
 
           <div className="space-y-2">
             <label
