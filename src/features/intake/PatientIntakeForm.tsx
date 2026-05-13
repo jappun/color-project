@@ -35,14 +35,24 @@ const SEX_ASSIGNED_AT_BIRTH = [
 
 type SexAssignedValue = (typeof SEX_ASSIGNED_AT_BIRTH)[number]['value']
 
+type FormErrorKey =
+  | 'cancerType'
+  | 'otherCancer'
+  | 'stage'
+  | 'age'
+  | 'sex'
+  | 'oncologist'
+
+type FormErrors = Partial<Record<FormErrorKey, string>>
+
 export type PatientIntakePayload = {
-  cancerType: CancerTypeValue | ''
+  cancerType: CancerTypeValue
   cancerTypeLabel: string | null
   otherCancerDetail: string | null
-  stage: (typeof STAGES)[number]['value'] | ''
+  stage: (typeof STAGES)[number]['value']
   stageLabel: string | null
-  age: number | null
-  sexAssignedAtBirth: SexAssignedValue | ''
+  age: number
+  sexAssignedAtBirth: SexAssignedValue
   sexAssignedAtBirthLabel: string | null
   priorCancerTreatment: boolean
   metWithOncologist: 'yes' | 'no'
@@ -64,10 +74,36 @@ function findSexAssignedLabel(value: string): string | null {
   return row?.label ?? null
 }
 
+function validateAgeInput(raw: string): string | undefined {
+  const t = raw.trim()
+  if (t === '') return 'Please enter your age.'
+  const n = Number(t)
+  if (!Number.isFinite(n) || !Number.isInteger(n))
+    return 'Use a whole number for age.'
+  if (n < 1 || n > 120) return 'Please enter an age between 1 and 120.'
+  return undefined
+}
+
+/** SVG chevron stroke ~ violet-700 #6d28d9 */
+const SELECT_CHEVRON = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236d28d9'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`
+
+const fieldRing =
+  'focus:border-violet-500/80 focus:bg-white focus:ring-4 focus:ring-violet-300/45'
+const fieldRingError =
+  'border-rose-400 focus:border-rose-500 focus:ring-rose-200/55'
+
 export function PatientIntakeForm() {
   const formId = useId()
   const cancerListId = `${formId}-cancer-list`
   const cancerFieldId = `${formId}-cancer`
+  const err = {
+    cancer: `${formId}-err-cancer`,
+    other: `${formId}-err-other`,
+    stage: `${formId}-err-stage`,
+    age: `${formId}-err-age`,
+    sex: `${formId}-err-sex`,
+    onc: `${formId}-err-onc`,
+  } as const
 
   const [cancerType, setCancerType] = useState<CancerTypeValue | ''>('')
   const [cancerQuery, setCancerQuery] = useState('')
@@ -89,10 +125,18 @@ export function PatientIntakeForm() {
   )
   const [mainAnxiety, setMainAnxiety] = useState('')
 
-  const [oncologistError, setOncologistError] = useState(false)
-  const [otherCancerError, setOtherCancerError] = useState(false)
+  const [errors, setErrors] = useState<FormErrors>({})
 
   const comboboxRef = useRef<HTMLDivElement>(null)
+
+  const clearFieldError = useCallback((key: FormErrorKey) => {
+    setErrors((prev) => {
+      if (!prev[key]) return prev
+      const next = { ...prev }
+      delete next[key]
+      return next
+    })
+  }, [])
 
   const filteredCancerTypes = useMemo(() => {
     const q = cancerQuery.trim().toLowerCase()
@@ -130,9 +174,10 @@ export function PatientIntakeForm() {
     setCancerType(value)
     setCancerQuery(findCancerLabel(value) ?? '')
     setCancerOpen(false)
+    clearFieldError('cancerType')
     if (value !== 'other') {
       setOtherCancerDetail('')
-      setOtherCancerError(false)
+      clearFieldError('otherCancer')
     }
   }
 
@@ -191,38 +236,53 @@ export function PatientIntakeForm() {
     }
   }
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
+  function runValidation(): FormErrors {
+    const next: FormErrors = {}
 
-    let valid = true
-    if (metWithOncologist !== 'yes' && metWithOncologist !== 'no') {
-      setOncologistError(true)
-      valid = false
-    } else {
-      setOncologistError(false)
+    if (!cancerType) {
+      next.cancerType = 'Please choose a cancer type from the list.'
     }
 
     if (cancerType === 'other' && otherCancerDetail.trim() === '') {
-      setOtherCancerError(true)
-      valid = false
-    } else {
-      setOtherCancerError(false)
+      next.otherCancer =
+        'Add a short description so we can tailor support for you.'
     }
 
-    if (!valid) return
+    if (!stage) {
+      next.stage = 'Please select a stage.'
+    }
+
+    const ageErr = validateAgeInput(age)
+    if (ageErr) next.age = ageErr
+
+    if (!sexAssignedAtBirth) {
+      next.sex = 'Please select an option.'
+    }
+
+    if (metWithOncologist !== 'yes' && metWithOncologist !== 'no') {
+      next.oncologist = 'Please choose yes or no to continue.'
+    }
+
+    return next
+  }
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+
+    const next = runValidation()
+    setErrors(next)
+    if (Object.keys(next).length > 0) return
 
     const payload: PatientIntakePayload = {
-      cancerType,
-      cancerTypeLabel: cancerType ? findCancerLabel(cancerType) : null,
+      cancerType: cancerType as CancerTypeValue,
+      cancerTypeLabel: findCancerLabel(cancerType),
       otherCancerDetail:
         cancerType === 'other' ? otherCancerDetail.trim() : null,
-      stage,
-      stageLabel: stage ? findStageLabel(stage) : null,
-      age: age === '' ? null : Number(age),
-      sexAssignedAtBirth,
-      sexAssignedAtBirthLabel: sexAssignedAtBirth
-        ? findSexAssignedLabel(sexAssignedAtBirth)
-        : null,
+      stage: stage as (typeof STAGES)[number]['value'],
+      stageLabel: findStageLabel(stage),
+      age: Number(age.trim()),
+      sexAssignedAtBirth: sexAssignedAtBirth as SexAssignedValue,
+      sexAssignedAtBirthLabel: findSexAssignedLabel(sexAssignedAtBirth),
       priorCancerTreatment,
       metWithOncologist: metWithOncologist as 'yes' | 'no',
       mainAnxiety: mainAnxiety.trim() === '' ? null : mainAnxiety.trim(),
@@ -231,18 +291,21 @@ export function PatientIntakeForm() {
     console.log('Patient intake (demo)', payload)
   }
 
-  const selectChevron = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23787169'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`
+  const cancerErr = errors.cancerType
+  const cancerInputClass = cancerErr
+    ? `w-full rounded-2xl border bg-stone-50/80 px-4 py-3 text-stone-900 shadow-inner shadow-stone-900/5 outline-none transition placeholder:text-stone-400 ${fieldRingError}`
+    : `w-full rounded-2xl border border-stone-200 bg-stone-50/80 px-4 py-3 text-stone-900 shadow-inner shadow-stone-900/5 outline-none transition placeholder:text-stone-400 ${fieldRing}`
 
   return (
     <div className="w-full max-w-lg">
       <div
         role="status"
-        className="mb-6 rounded-2xl border border-amber-200/90 bg-amber-50 px-4 py-3 text-center text-sm font-medium text-amber-950 shadow-sm shadow-amber-900/5"
+        className="mb-6 rounded-2xl border border-violet-400/35 bg-violet-100/90 px-4 py-3 text-center text-sm font-medium text-violet-950 shadow-sm shadow-violet-950/10"
       >
         Demo mode — mock clinical data only.
       </div>
 
-      <div className="rounded-3xl border border-stone-200/90 bg-white/90 p-6 shadow-xl shadow-stone-900/5 backdrop-blur-sm sm:p-8">
+      <div className="rounded-3xl border border-stone-200/90 bg-white/90 p-6 shadow-xl shadow-violet-950/10 backdrop-blur-sm sm:p-8">
         <header className="mb-8">
           <h1 className="text-2xl font-semibold tracking-tight text-stone-900 sm:text-[1.65rem]">
             Tell us a bit about you
@@ -259,7 +322,7 @@ export function PatientIntakeForm() {
               htmlFor={cancerFieldId}
               className="block text-sm font-medium text-stone-800"
             >
-              Cancer type
+              Cancer type{' '}
             </label>
             <p className="text-xs text-stone-500">
               Search or choose from common types.
@@ -271,6 +334,8 @@ export function PatientIntakeForm() {
               aria-expanded={cancerOpen}
               aria-controls={cancerListId}
               aria-autocomplete="list"
+              aria-invalid={Boolean(cancerErr)}
+              aria-describedby={cancerErr ? err.cancer : undefined}
               autoComplete="off"
               value={
                 cancerOpen
@@ -279,7 +344,10 @@ export function PatientIntakeForm() {
                     ? (findCancerLabel(cancerType) ?? '')
                     : cancerQuery
               }
-              onChange={(e) => handleCancerInputChange(e.target.value)}
+              onChange={(e) => {
+                handleCancerInputChange(e.target.value)
+                clearFieldError('cancerType')
+              }}
               onFocus={() => {
                 setActiveCancerIndex(0)
                 setCancerOpen(true)
@@ -295,13 +363,13 @@ export function PatientIntakeForm() {
               }}
               onKeyDown={handleCancerKeyDown}
               placeholder="e.g. breast, lung…"
-              className="w-full rounded-2xl border border-stone-200 bg-stone-50/80 px-4 py-3 text-stone-900 shadow-inner shadow-stone-900/5 outline-none transition placeholder:text-stone-400 focus:border-amber-400/80 focus:bg-white focus:ring-4 focus:ring-amber-200/40"
+              className={cancerInputClass}
             />
             {cancerOpen && filteredCancerTypes.length > 0 ? (
               <ul
                 id={cancerListId}
                 role="listbox"
-                className="absolute z-20 mt-1 max-h-52 w-full overflow-auto rounded-2xl border border-stone-200 bg-white py-1 shadow-lg shadow-stone-900/10"
+                className="absolute z-20 mt-1 max-h-52 w-full overflow-auto rounded-2xl border border-stone-200 bg-white py-1 shadow-lg shadow-violet-950/15"
               >
                 {filteredCancerTypes.map((opt, index) => (
                   <li key={opt.value} role="presentation">
@@ -311,8 +379,8 @@ export function PatientIntakeForm() {
                       aria-selected={cancerType === opt.value}
                       className={`flex w-full px-4 py-2.5 text-left text-sm transition ${
                         index === highlightedCancerIndex
-                          ? 'bg-amber-50 text-stone-900'
-                          : 'text-stone-700 hover:bg-stone-50'
+                          ? 'bg-violet-100 text-violet-950'
+                          : 'text-stone-700 hover:bg-violet-50/80'
                       }`}
                       onMouseEnter={() => setActiveCancerIndex(index)}
                       onMouseDown={(e) => e.preventDefault()}
@@ -324,6 +392,11 @@ export function PatientIntakeForm() {
                 ))}
               </ul>
             ) : null}
+            {cancerErr ? (
+              <p id={err.cancer} className="text-xs text-rose-600" role="alert">
+                {cancerErr}
+              </p>
+            ) : null}
           </div>
 
           {cancerType === 'other' ? (
@@ -332,7 +405,7 @@ export function PatientIntakeForm() {
                 htmlFor={`${formId}-other-cancer`}
                 className="block text-sm font-medium text-stone-800"
               >
-                Please describe your cancer type
+                Please describe your cancer type{' '}
               </label>
               <input
                 id={`${formId}-other-cancer`}
@@ -340,21 +413,18 @@ export function PatientIntakeForm() {
                 value={otherCancerDetail}
                 onChange={(e) => {
                   setOtherCancerDetail(e.target.value)
-                  if (otherCancerError && e.target.value.trim() !== '') {
-                    setOtherCancerError(false)
-                  }
+                  clearFieldError('otherCancer')
                 }}
                 placeholder="e.g. pancreatic, ovarian…"
-                aria-invalid={otherCancerError}
+                aria-invalid={Boolean(errors.otherCancer)}
+                aria-describedby={errors.otherCancer ? err.other : undefined}
                 className={`w-full rounded-2xl border bg-stone-50/80 px-4 py-3 text-stone-900 shadow-inner shadow-stone-900/5 outline-none transition placeholder:text-stone-400 focus:bg-white focus:ring-4 ${
-                  otherCancerError
-                    ? 'border-rose-300 focus:border-rose-400 focus:ring-rose-200/50'
-                    : 'border-stone-200 focus:border-amber-400/80 focus:ring-amber-200/40'
+                  errors.otherCancer ? fieldRingError : `border-stone-200 ${fieldRing}`
                 }`}
               />
-              {otherCancerError ? (
-                <p className="text-xs text-rose-600" role="alert">
-                  Add a short description so we can tailor support for you.
+              {errors.otherCancer ? (
+                <p id={err.other} className="text-xs text-rose-600" role="alert">
+                  {errors.otherCancer}
                 </p>
               ) : null}
             </div>
@@ -365,16 +435,23 @@ export function PatientIntakeForm() {
               htmlFor={`${formId}-stage`}
               className="block text-sm font-medium text-stone-800"
             >
-              Stage
+              Stage{' '}
             </label>
             <select
               id={`${formId}-stage`}
               value={stage}
-              onChange={(e) =>
+              onChange={(e) => {
                 setStage(e.target.value as (typeof STAGES)[number]['value'] | '')
-              }
-              className="w-full cursor-pointer appearance-none rounded-2xl border border-stone-200 bg-stone-50/80 bg-[length:1rem] bg-[right_1rem_center] bg-no-repeat px-4 py-3 pr-11 text-stone-900 outline-none transition focus:border-amber-400/80 focus:bg-white focus:ring-4 focus:ring-amber-200/40"
-              style={{ backgroundImage: selectChevron }}
+                clearFieldError('stage')
+              }}
+              aria-invalid={Boolean(errors.stage)}
+              aria-describedby={errors.stage ? err.stage : undefined}
+              className={`w-full cursor-pointer appearance-none rounded-2xl border bg-stone-50/80 bg-[length:1rem] bg-[right_1rem_center] bg-no-repeat px-4 py-3 pr-11 text-stone-900 outline-none transition ${
+                errors.stage
+                  ? fieldRingError
+                  : `border-stone-200 ${fieldRing}`
+              }`}
+              style={{ backgroundImage: SELECT_CHEVRON }}
             >
               <option value="">Select stage</option>
               {STAGES.map((s) => (
@@ -383,6 +460,11 @@ export function PatientIntakeForm() {
                 </option>
               ))}
             </select>
+            {errors.stage ? (
+              <p id={err.stage} className="text-xs text-rose-600" role="alert">
+                {errors.stage}
+              </p>
+            ) : null}
           </div>
 
           <div className="space-y-2">
@@ -390,20 +472,31 @@ export function PatientIntakeForm() {
               htmlFor={`${formId}-age`}
               className="block text-sm font-medium text-stone-800"
             >
-              Age
+              Age{' '}
             </label>
-            <p className="text-xs text-stone-500">Optional.</p>
             <input
               id={`${formId}-age`}
               type="number"
               inputMode="numeric"
-              min={0}
+              min={1}
               max={120}
               value={age}
-              onChange={(e) => setAge(e.target.value)}
+              onChange={(e) => {
+                setAge(e.target.value)
+                clearFieldError('age')
+              }}
               placeholder="e.g. 45"
-              className="w-full rounded-2xl border border-stone-200 bg-stone-50/80 px-4 py-3 text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-amber-400/80 focus:bg-white focus:ring-4 focus:ring-amber-200/40"
+              aria-invalid={Boolean(errors.age)}
+              aria-describedby={errors.age ? err.age : undefined}
+              className={`w-full rounded-2xl border bg-stone-50/80 px-4 py-3 text-stone-900 outline-none transition placeholder:text-stone-400 ${
+                errors.age ? fieldRingError : `border-stone-200 ${fieldRing}`
+              }`}
             />
+            {errors.age ? (
+              <p id={err.age} className="text-xs text-rose-600" role="alert">
+                {errors.age}
+              </p>
+            ) : null}
           </div>
 
           <div className="space-y-2">
@@ -411,16 +504,21 @@ export function PatientIntakeForm() {
               htmlFor={`${formId}-sex`}
               className="block text-sm font-medium text-stone-800"
             >
-              Sex assigned at birth
+              Sex assigned at birth{' '}
             </label>
             <select
               id={`${formId}-sex`}
               value={sexAssignedAtBirth}
-              onChange={(e) =>
+              onChange={(e) => {
                 setSexAssignedAtBirth(e.target.value as SexAssignedValue | '')
-              }
-              className="w-full cursor-pointer appearance-none rounded-2xl border border-stone-200 bg-stone-50/80 bg-[length:1rem] bg-[right_1rem_center] bg-no-repeat px-4 py-3 pr-11 text-stone-900 outline-none transition focus:border-amber-400/80 focus:bg-white focus:ring-4 focus:ring-amber-200/40"
-              style={{ backgroundImage: selectChevron }}
+                clearFieldError('sex')
+              }}
+              aria-invalid={Boolean(errors.sex)}
+              aria-describedby={errors.sex ? err.sex : undefined}
+              className={`w-full cursor-pointer appearance-none rounded-2xl border bg-stone-50/80 bg-[length:1rem] bg-[right_1rem_center] bg-no-repeat px-4 py-3 pr-11 text-stone-900 outline-none transition ${
+                errors.sex ? fieldRingError : `border-stone-200 ${fieldRing}`
+              }`}
+              style={{ backgroundImage: SELECT_CHEVRON }}
             >
               <option value="">Select</option>
               {SEX_ASSIGNED_AT_BIRTH.map((s) => (
@@ -429,9 +527,14 @@ export function PatientIntakeForm() {
                 </option>
               ))}
             </select>
+            {errors.sex ? (
+              <p id={err.sex} className="text-xs text-rose-600" role="alert">
+                {errors.sex}
+              </p>
+            ) : null}
           </div>
 
-          <fieldset className="space-y-6 rounded-2xl border border-stone-100 bg-stone-50/60 px-4 py-5 sm:px-5 sm:py-6">
+          <fieldset className="space-y-6 rounded-2xl border border-stone-100 bg-violet-50/25 px-4 py-5 sm:px-5 sm:py-6">
             <legend className="px-1 text-sm font-medium text-stone-800">
               A few details
             </legend>
@@ -444,28 +547,33 @@ export function PatientIntakeForm() {
               onPressedChange={setPriorCancerTreatment}
             />
 
-            <div className="border-t border-stone-200/80 pt-5">
+            <div className="border-t border-violet-200/40 pt-5">
               <p
                 id={`${formId}-onc-label`}
                 className="text-sm font-medium text-stone-800"
               >
                 Have you met with your oncologist yet?{' '}
-                <span className="font-normal text-rose-500">*</span>
               </p>
               <p className="mt-0.5 text-xs leading-relaxed text-stone-500">
                 We ask so we can match you with the right next steps.
               </p>
               <div
-                className="mt-3 flex flex-wrap gap-3"
+                className={`mt-3 flex flex-wrap gap-3 rounded-2xl p-1 ${
+                  errors.oncologist
+                    ? 'ring-2 ring-rose-300/90 ring-offset-2 ring-offset-violet-50/50'
+                    : ''
+                }`}
                 role="radiogroup"
                 aria-labelledby={`${formId}-onc-label`}
+                aria-invalid={Boolean(errors.oncologist)}
+                aria-describedby={errors.oncologist ? err.onc : undefined}
               >
                 <YesNoPill
                   id={`${formId}-onc-yes`}
                   selected={metWithOncologist === 'yes'}
                   onSelect={() => {
                     setMetWithOncologist('yes')
-                    setOncologistError(false)
+                    clearFieldError('oncologist')
                   }}
                   label="Yes"
                 />
@@ -474,19 +582,19 @@ export function PatientIntakeForm() {
                   selected={metWithOncologist === 'no'}
                   onSelect={() => {
                     setMetWithOncologist('no')
-                    setOncologistError(false)
+                    clearFieldError('oncologist')
                   }}
                   label="No"
                 />
               </div>
-              {oncologistError ? (
-                <p className="mt-2 text-xs text-rose-600" role="alert">
-                  Please choose yes or no to continue.
+              {errors.oncologist ? (
+                <p id={err.onc} className="mt-2 text-xs text-rose-600" role="alert">
+                  {errors.oncologist}
                 </p>
               ) : null}
             </div>
 
-            <div className="border-t border-stone-200/80 pt-6">
+            <div className="border-t border-violet-200/40 pt-6">
               <label
                 htmlFor={`${formId}-anxiety`}
                 className="block text-base font-medium tracking-tight text-stone-800"
@@ -495,7 +603,7 @@ export function PatientIntakeForm() {
               </label>
               <p className="mt-1.5 text-sm leading-relaxed text-stone-500">
                 Whatever is on your mind is okay here — there is no wrong
-                answer.
+                answer. Optional.
               </p>
               <textarea
                 id={`${formId}-anxiety`}
@@ -504,7 +612,7 @@ export function PatientIntakeForm() {
                 onChange={(e) => setMainAnxiety(e.target.value)}
                 rows={6}
                 placeholder="You can share as much or as little as you'd like"
-                className="mt-4 w-full resize-y rounded-3xl border border-rose-200/50 bg-gradient-to-br from-rose-50/90 via-amber-50/40 to-stone-50/80 px-5 py-4 text-[0.95rem] leading-relaxed text-stone-800 shadow-inner shadow-rose-900/5 outline-none transition placeholder:text-stone-400/90 focus:border-amber-300/80 focus:bg-gradient-to-br focus:from-white focus:via-rose-50/50 focus:to-amber-50/30 focus:shadow-md focus:shadow-amber-900/5 focus:ring-4 focus:ring-amber-200/35"
+                className={`mt-4 w-full resize-y rounded-3xl border border-violet-200/55 bg-gradient-to-br from-violet-100/90 via-fuchsia-50/50 to-stone-50/85 px-5 py-4 text-[0.95rem] leading-relaxed text-stone-800 shadow-inner shadow-violet-950/10 outline-none transition placeholder:text-stone-400/90 ${fieldRing}`}
               />
             </div>
           </fieldset>
@@ -512,7 +620,7 @@ export function PatientIntakeForm() {
           <div className="pt-2">
             <button
               type="submit"
-              className="w-full rounded-2xl bg-gradient-to-b from-amber-600 to-amber-700 px-5 py-3.5 text-base font-semibold text-white shadow-md shadow-amber-900/20 transition hover:from-amber-500 hover:to-amber-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 active:translate-y-px"
+              className="w-full rounded-2xl bg-gradient-to-b from-violet-800 to-violet-950 px-5 py-3.5 text-base font-semibold text-violet-50 shadow-md shadow-violet-950/35 transition hover:from-violet-700 hover:to-violet-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-700 active:translate-y-px"
             >
               Continue
             </button>
@@ -558,9 +666,9 @@ function ToggleRow({
         role="switch"
         aria-checked={pressed}
         onClick={() => onPressedChange(!pressed)}
-        className={`relative h-8 w-14 shrink-0 rounded-full border transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500 ${
+        className={`relative h-8 w-14 shrink-0 rounded-full border transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-600 ${
           pressed
-            ? 'border-amber-500 bg-amber-500'
+            ? 'border-violet-700 bg-violet-800'
             : 'border-stone-300 bg-stone-200/80'
         }`}
       >
@@ -591,10 +699,10 @@ function YesNoPill({ id, selected, onSelect, label }: YesNoPillProps) {
       role="radio"
       aria-checked={selected}
       onClick={onSelect}
-      className={`min-w-[5.5rem] rounded-2xl border px-5 py-2.5 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500 ${
+      className={`min-w-[5.5rem] rounded-2xl border px-5 py-2.5 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-600 ${
         selected
-          ? 'border-amber-500 bg-amber-100/90 text-amber-950 shadow-sm shadow-amber-900/10'
-          : 'border-stone-200/90 bg-white/90 text-stone-700 hover:border-amber-200 hover:bg-amber-50/50'
+          ? 'border-violet-700 bg-violet-200/90 text-violet-950 shadow-sm shadow-violet-950/15'
+          : 'border-stone-200/90 bg-white/90 text-stone-700 hover:border-violet-300 hover:bg-violet-50/70'
       }`}
     >
       {label}
