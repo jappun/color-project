@@ -1,14 +1,40 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import {
-  PAGE1_PARTS,
-  PAGE2,
-  PAGE3,
-} from './mockResultsContent.ts'
+import type {
+  AnalyzeApiResponse,
+  SuggestedQuestion,
+  WorkupStep,
+} from '../../lib/analyzeApi.ts'
 import { buildStreamPlan, visiblePartText, type StreamPlan } from './streamUtils.ts'
 
 const PAGE_LABELS = ['Your Diagnosis', "What's Next", 'Your Questions'] as const
 
-export function MockResultsExperience() {
+const PAGE1_TITLE = 'Understanding Your Diagnosis'
+const PAGE1_SUB =
+  "Here's what your diagnosis means in plain language."
+
+const PAGE2_TITLE = 'What to Expect Next'
+const PAGE2_SUB =
+  'Based on your diagnosis, here are the steps your care team will likely take.'
+
+const PAGE3_TITLE = 'Questions for Your Oncologist'
+const PAGE3_SUB =
+  'These questions will help you engage meaningfully with your care team.'
+
+function splitDiagnosisBody(text: string): string[] {
+  const parts = text
+    .split(/\n\n+/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+  if (parts.length > 0) return parts
+  const t = text.trim()
+  return t ? [t] : ['']
+}
+
+type MockResultsExperienceProps = {
+  data: AnalyzeApiResponse
+}
+
+export function MockResultsExperience({ data }: MockResultsExperienceProps) {
   const [displayPage, setDisplayPage] = useState(0)
   const [contentVisible, setContentVisible] = useState(true)
   const [completedPages, setCompletedPages] = useState<Set<number>>(
@@ -17,23 +43,20 @@ export function MockResultsExperience() {
   const [showTabs, setShowTabs] = useState(false)
 
   const plans = useMemo(() => {
-    const p1 = buildStreamPlan([
-      PAGE1_PARTS.heading,
-      PAGE1_PARTS.subheading,
-      ...PAGE1_PARTS.paragraphs,
-    ])
+    const diagnosisParts = splitDiagnosisBody(data.diagnosis)
+    const p1 = buildStreamPlan([PAGE1_TITLE, PAGE1_SUB, ...diagnosisParts])
     const p2 = buildStreamPlan([
-      PAGE2.heading,
-      PAGE2.subheading,
-      ...PAGE2.steps.flatMap((s) => [s.title, s.body]),
+      PAGE2_TITLE,
+      PAGE2_SUB,
+      ...data.workup.flatMap((s) => [s.title, s.explanation]),
     ])
     const p3 = buildStreamPlan([
-      PAGE3.heading,
-      PAGE3.subheading,
-      ...PAGE3.items.map((i) => i.question),
+      PAGE3_TITLE,
+      PAGE3_SUB,
+      ...data.questions.map((q) => q.question),
     ])
     return [p1, p2, p3] as const
-  }, [])
+  }, [data])
 
   const plan = plans[displayPage]
   const streamFrozen = completedPages.has(displayPage)
@@ -73,7 +96,7 @@ export function MockResultsExperience() {
     <div className="relative w-full min-w-0 pb-28 sm:pb-24 lg:mx-auto lg:max-w-3xl">
       {showTabs ? (
         <nav
-          className="sticky top-0 z-40 -mx-1 mb-8  px-1 pb-3 pt-1"
+          className="sticky top-0 z-40 -mx-1 mb-8 border-b border-violet-200/60 bg-[#f4f0fb]/90 px-1 pb-3 pt-1 backdrop-blur-md"
           aria-label="Results sections"
         >
           <div className="flex flex-wrap gap-1 rounded-2xl bg-white/50 p-1 shadow-sm shadow-violet-950/5">
@@ -93,7 +116,13 @@ export function MockResultsExperience() {
             ))}
           </div>
           <p className="mt-3 text-center text-xs text-stone-500">
-
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-100/80 px-3 py-1 text-violet-900/90">
+              <span
+                className="h-1.5 w-1.5 rounded-full bg-violet-500"
+                aria-hidden
+              />
+              You&apos;re all set — browse any section above.
+            </span>
           </p>
         </nav>
       ) : null}
@@ -115,21 +144,20 @@ export function MockResultsExperience() {
           {(visibleWordCount) => (
             <>
               {displayPage === 0 ? (
-                <PageDiagnosis
-                  plan={plan}
-                  visibleWordCount={visibleWordCount}
-                />
+                <PageDiagnosis plan={plan} visibleWordCount={visibleWordCount} />
               ) : null}
               {displayPage === 1 ? (
                 <PageNextSteps
                   plan={plan}
                   visibleWordCount={visibleWordCount}
+                  steps={data.workup}
                 />
               ) : null}
               {displayPage === 2 ? (
                 <PageQuestions
                   plan={plan}
                   visibleWordCount={visibleWordCount}
+                  items={data.questions}
                 />
               ) : null}
             </>
@@ -209,6 +237,16 @@ function PageDiagnosis({
   plan: StreamPlan
   visibleWordCount: number
 }) {
+  const bodyStart = 2
+  const paragraphIndices = useMemo(
+    () =>
+      Array.from(
+        { length: Math.max(0, plan.partCount - bodyStart) },
+        (_, j) => bodyStart + j,
+      ),
+    [plan.partCount],
+  )
+
   return (
     <article className="space-y-5">
       <h1 className="text-2xl font-semibold tracking-tight text-stone-900 sm:text-3xl">
@@ -218,8 +256,10 @@ function PageDiagnosis({
         {visiblePartText(plan, visibleWordCount, 1)}
       </p>
       <div className="space-y-4 text-[0.95rem] leading-relaxed text-stone-700">
-        {PAGE1_PARTS.paragraphs.map((_, i) => (
-          <p key={i}>{visiblePartText(plan, visibleWordCount, 2 + i)}</p>
+        {paragraphIndices.map((partIndex) => (
+          <p key={partIndex}>
+            {visiblePartText(plan, visibleWordCount, partIndex)}
+          </p>
         ))}
       </div>
     </article>
@@ -229,9 +269,11 @@ function PageDiagnosis({
 function PageNextSteps({
   plan,
   visibleWordCount,
+  steps,
 }: {
   plan: StreamPlan
   visibleWordCount: number
+  steps: WorkupStep[]
 }) {
   const partBase = 2
   return (
@@ -246,16 +288,16 @@ function PageNextSteps({
       </header>
 
       <p className="text-[0.65rem] font-medium uppercase tracking-wide text-stone-400">
-        Demo mode — mock clinical data only
+        AI-generated from guidelines — confirm with your care team
       </p>
 
       <ul className="space-y-4">
-        {PAGE2.steps.map((step, i) => {
+        {steps.map((step, i) => {
           const titleIdx = partBase + i * 2
           const bodyIdx = titleIdx + 1
           return (
             <li
-              key={step.title}
+              key={`${step.title}-${i}`}
               className="rounded-2xl border border-violet-200/50 bg-white/80 p-4 shadow-sm shadow-violet-950/5 sm:p-5"
             >
               <h2 className="text-base font-semibold text-violet-950">
@@ -275,9 +317,11 @@ function PageNextSteps({
 function PageQuestions({
   plan,
   visibleWordCount,
+  items,
 }: {
   plan: StreamPlan
   visibleWordCount: number
+  items: SuggestedQuestion[]
 }) {
   const qBase = 2
   return (
@@ -292,11 +336,11 @@ function PageQuestions({
       </header>
 
       <div className="space-y-3">
-        {PAGE3.items.map((item, i) => {
+        {items.map((item, i) => {
           const qIdx = qBase + i
           return (
             <details
-              key={i}
+              key={`${item.question.slice(0, 48)}-${i}`}
               className="group rounded-2xl border border-violet-200/45 bg-white/85 shadow-sm shadow-violet-950/5 open:border-violet-300/60 open:bg-white"
             >
               <summary className="flex cursor-pointer list-none items-start justify-between gap-3 rounded-2xl px-4 py-3.5 marker:content-none [&::-webkit-details-marker]:hidden sm:px-5 sm:py-4">
@@ -321,7 +365,7 @@ function PageQuestions({
                   <span className="font-medium text-stone-800">
                     What the answer might mean:{' '}
                   </span>
-                  {item.whatMeans}
+                  {item.whatItMeans}
                 </p>
               </div>
             </details>

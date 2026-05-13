@@ -6,12 +6,13 @@ import os
 import re
 import textwrap
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
-import google.generativeai as genai
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from google import genai
+from google.genai import types
 from pydantic import BaseModel
 
 load_dotenv(Path(__file__).resolve().parent / ".env")
@@ -20,7 +21,8 @@ GUIDELINES_PATH = Path(__file__).resolve().parent / "guidelines.json"
 with GUIDELINES_PATH.open(encoding="utf-8") as _gf:
     GUIDELINES: dict[str, dict[str, str]] = json.load(_gf)
 
-GEMINI_MODEL = "gemini-2.0-flash"
+# Default: lighter model with separate free-tier pool. Override with GEMINI_MODEL in .env.
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite").strip()
 
 app = FastAPI(title="Color Project API")
 
@@ -46,8 +48,6 @@ class AnalyzeRequest(BaseModel):
     anxiety: str | None = None
 
 
-
-
 def _build_guidelines_context(cancer_type: str) -> str:
     chunk = GUIDELINES.get(cancer_type)
     if chunk is None:
@@ -62,6 +62,12 @@ def _build_guidelines_context(cancer_type: str) -> str:
     return json.dumps(chunk, ensure_ascii=False, indent=2)
 
 
+WARM_TONE_INSTRUCTION = (
+    "Always use a warm, friendly, supportive tone: reassuring and human; explain any "
+    "necessary clinical terms in plain language without being vague or patronizing."
+)
+
+
 def _build_prompt(body: AnalyzeRequest, guidelines_json: str) -> str:
     patient_bits = [
         f"Cancer type (for personalization): {body.cancerType}",
@@ -71,14 +77,13 @@ def _build_prompt(body: AnalyzeRequest, guidelines_json: str) -> str:
         f"Had prior cancer treatment: {body.hadPriorTreatment}",
         f"Has met with oncologist: {body.metOncologist}",
         f"Patient's stated anxiety or concerns: {body.anxiety if body.anxiety else 'not provided'}",
-        f"Tone preference: {body.tonePreference} — {_tone_instructions(body.tonePreference)}",
     ]
     patient_block = "\n".join(patient_bits)
 
     return textwrap.dedent(
         f"""
         You are a supportive oncology education assistant. Personalize using the patient context below.
-        Use a warm, supportive tone: reassuring and human; explain any necessary clinical terms in plain language without being vague.
+        {WARM_TONE_INSTRUCTION}
 
         PATIENT CONTEXT (use to tailor wording; do not invent clinical facts not implied by stage and type):
         {patient_block}
@@ -119,6 +124,16 @@ def _parse_json_response(raw: str) -> dict[str, Any]:
         ) from e
 
 
+def _is_gemini_quota_error(exc: BaseException) -> bool:
+    msg = str(exc)
+    upper = msg.upper()
+    return (
+        "429" in msg
+        or "RESOURCE_EXHAUSTED" in upper
+        or ("QUOTA" in upper and "EXCEED" in upper)
+    )
+
+
 @app.post("/api/analyze")
 def analyze(body: AnalyzeRequest) -> dict[str, Any]:
     api_key = os.getenv("GEMINI_API_KEY")
@@ -131,17 +146,25 @@ def analyze(body: AnalyzeRequest) -> dict[str, Any]:
     guidelines_json = _build_guidelines_context(body.cancerType)
     prompt = _build_prompt(body, guidelines_json)
 
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel(GEMINI_MODEL)
-
     try:
-        response = model.generate_content(
-            prompt,
-            generation_config=genai.GenerationConfig(
+        client = genai.Client(api_key=api_key)
+        response = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
                 response_mime_type="application/json",
             ),
         )
     except Exception as e:
+        if _is_gemini_quota_error(e):
+            raise HTTPException(
+                status_code=429,
+                detail=(
+                    "Gemini API quota or rate limit was exceeded. Wait and retry, try another model "
+                    f"via GEMINI_MODEL in backend/.env (current: {GEMINI_MODEL}), or check billing. "
+                    "https://ai.google.dev/gemini-api/docs/rate-limits"
+                ),
+            ) from e
         raise HTTPException(status_code=502, detail=str(e)) from e
 
     raw = (response.text or "").strip()

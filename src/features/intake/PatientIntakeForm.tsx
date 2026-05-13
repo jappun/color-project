@@ -37,7 +37,6 @@ type SexAssignedValue = (typeof SEX_ASSIGNED_AT_BIRTH)[number]['value']
 
 type FormErrorKey =
   | 'cancerType'
-  | 'otherCancer'
   | 'stage'
   | 'age'
   | 'sex'
@@ -112,7 +111,7 @@ function fieldShellClassName(hasError: boolean): string {
 }
 
 type PatientIntakeFormProps = {
-  onSubmitSuccess?: (payload: PatientIntakePayload) => void
+  onSubmitSuccess?: (payload: PatientIntakePayload) => void | Promise<void>
 }
 
 export function PatientIntakeForm({ onSubmitSuccess }: PatientIntakeFormProps) {
@@ -121,7 +120,6 @@ export function PatientIntakeForm({ onSubmitSuccess }: PatientIntakeFormProps) {
   const cancerFieldId = `${formId}-cancer`
   const err = {
     cancer: `${formId}-err-cancer`,
-    other: `${formId}-err-other`,
     stage: `${formId}-err-stage`,
     age: `${formId}-err-age`,
     sex: `${formId}-err-sex`,
@@ -133,7 +131,6 @@ export function PatientIntakeForm({ onSubmitSuccess }: PatientIntakeFormProps) {
   const [cancerQuery, setCancerQuery] = useState('')
   const [cancerOpen, setCancerOpen] = useState(false)
   const [activeCancerIndex, setActiveCancerIndex] = useState(0)
-  const [otherCancerDetail, setOtherCancerDetail] = useState('')
 
   const [stage, setStage] = useState<(typeof STAGES)[number]['value'] | ''>(
     '',
@@ -152,6 +149,7 @@ export function PatientIntakeForm({ onSubmitSuccess }: PatientIntakeFormProps) {
   const [mainAnxiety, setMainAnxiety] = useState('')
 
   const [errors, setErrors] = useState<FormErrors>({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const comboboxRef = useRef<HTMLDivElement>(null)
 
@@ -201,10 +199,6 @@ export function PatientIntakeForm({ onSubmitSuccess }: PatientIntakeFormProps) {
     setCancerQuery(findCancerLabel(value) ?? '')
     setCancerOpen(false)
     clearFieldError('cancerType')
-    if (value !== 'other') {
-      setOtherCancerDetail('')
-      clearFieldError('otherCancer')
-    }
   }
 
   function handleCancerInputChange(value: string) {
@@ -217,7 +211,6 @@ export function PatientIntakeForm({ onSubmitSuccess }: PatientIntakeFormProps) {
       )
       if (!match) {
         setCancerType('')
-        setOtherCancerDetail('')
       }
     }
   }
@@ -269,11 +262,6 @@ export function PatientIntakeForm({ onSubmitSuccess }: PatientIntakeFormProps) {
       next.cancerType = 'Please choose a cancer type from the list.'
     }
 
-    if (cancerType === 'other' && otherCancerDetail.trim() === '') {
-      next.otherCancer =
-        'Add a short description so we can tailor support for you.'
-    }
-
     if (!stage) {
       next.stage = 'Please select a stage.'
     }
@@ -296,7 +284,7 @@ export function PatientIntakeForm({ onSubmitSuccess }: PatientIntakeFormProps) {
     return next
   }
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
 
     const next = runValidation()
@@ -306,8 +294,7 @@ export function PatientIntakeForm({ onSubmitSuccess }: PatientIntakeFormProps) {
     const payload: PatientIntakePayload = {
       cancerType: cancerType as CancerTypeValue,
       cancerTypeLabel: findCancerLabel(cancerType),
-      otherCancerDetail:
-        cancerType === 'other' ? otherCancerDetail.trim() : null,
+      otherCancerDetail: null,
       stage: stage as (typeof STAGES)[number]['value'],
       stageLabel: findStageLabel(stage),
       age: Number(age.trim()),
@@ -319,7 +306,12 @@ export function PatientIntakeForm({ onSubmitSuccess }: PatientIntakeFormProps) {
     }
 
     console.log('Patient intake (demo)', payload)
-    onSubmitSuccess?.(payload)
+    setIsSubmitting(true)
+    try {
+      await onSubmitSuccess?.(payload)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const cancerErr = errors.cancerType
@@ -683,13 +675,15 @@ export function PatientIntakeForm({ onSubmitSuccess }: PatientIntakeFormProps) {
           <div className="pt-2">
             <button
               type="submit"
-              className="w-full rounded-2xl bg-gradient-to-b from-violet-800 to-violet-950 px-5 py-3.5 text-base font-semibold text-violet-50 shadow-md shadow-violet-950/35 transition hover:from-violet-700 hover:to-violet-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-700 active:translate-y-px"
+              disabled={isSubmitting}
+              aria-busy={isSubmitting}
+              className="w-full rounded-2xl bg-gradient-to-b from-violet-800 to-violet-950 px-5 py-3.5 text-base font-semibold text-violet-50 shadow-md shadow-violet-950/35 transition hover:from-violet-700 hover:to-violet-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-700 active:translate-y-px disabled:pointer-events-none disabled:opacity-60"
             >
-              Continue
+              {isSubmitting ? 'Analyzing…' : 'Continue'}
             </button>
             <p className="mt-3 text-center text-xs text-stone-500">
-              By continuing you acknowledge this is a demo and no data is stored
-              or sent anywhere.
+              Your answers are sent to the local analysis API only. Always
+              confirm medical decisions with your care team.
             </p>
           </div>
         </form>
