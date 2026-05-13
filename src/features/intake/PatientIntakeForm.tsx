@@ -41,6 +41,7 @@ type FormErrorKey =
   | 'stage'
   | 'age'
   | 'sex'
+  | 'priorTreatment'
   | 'oncologist'
 
 type FormErrors = Partial<Record<FormErrorKey, string>>
@@ -54,7 +55,7 @@ export type PatientIntakePayload = {
   age: number
   sexAssignedAtBirth: SexAssignedValue
   sexAssignedAtBirthLabel: string | null
-  priorCancerTreatment: boolean
+  priorCancerTreatment: 'yes' | 'no'
   metWithOncologist: 'yes' | 'no'
   mainAnxiety: string | null
 }
@@ -92,7 +93,11 @@ const fieldRing =
 const fieldRingError =
   'border-rose-400 focus:border-rose-500 focus:ring-rose-200/55'
 
-export function PatientIntakeForm() {
+type PatientIntakeFormProps = {
+  onSubmitSuccess?: (payload: PatientIntakePayload) => void
+}
+
+export function PatientIntakeForm({ onSubmitSuccess }: PatientIntakeFormProps) {
   const formId = useId()
   const cancerListId = `${formId}-cancer-list`
   const cancerFieldId = `${formId}-cancer`
@@ -102,6 +107,7 @@ export function PatientIntakeForm() {
     stage: `${formId}-err-stage`,
     age: `${formId}-err-age`,
     sex: `${formId}-err-sex`,
+    prior: `${formId}-err-prior`,
     onc: `${formId}-err-onc`,
   } as const
 
@@ -119,7 +125,9 @@ export function PatientIntakeForm() {
     SexAssignedValue | ''
   >('')
 
-  const [priorCancerTreatment, setPriorCancerTreatment] = useState(false)
+  const [priorCancerTreatment, setPriorCancerTreatment] = useState<
+    'yes' | 'no' | ''
+  >('')
   const [metWithOncologist, setMetWithOncologist] = useState<'yes' | 'no' | ''>(
     '',
   )
@@ -259,6 +267,10 @@ export function PatientIntakeForm() {
       next.sex = 'Please select an option.'
     }
 
+    if (priorCancerTreatment !== 'yes' && priorCancerTreatment !== 'no') {
+      next.priorTreatment = 'Please choose yes or no to continue.'
+    }
+
     if (metWithOncologist !== 'yes' && metWithOncologist !== 'no') {
       next.oncologist = 'Please choose yes or no to continue.'
     }
@@ -283,12 +295,13 @@ export function PatientIntakeForm() {
       age: Number(age.trim()),
       sexAssignedAtBirth: sexAssignedAtBirth as SexAssignedValue,
       sexAssignedAtBirthLabel: findSexAssignedLabel(sexAssignedAtBirth),
-      priorCancerTreatment,
+      priorCancerTreatment: priorCancerTreatment as 'yes' | 'no',
       metWithOncologist: metWithOncologist as 'yes' | 'no',
       mainAnxiety: mainAnxiety.trim() === '' ? null : mainAnxiety.trim(),
     }
 
     console.log('Patient intake (demo)', payload)
+    onSubmitSuccess?.(payload)
   }
 
   const cancerErr = errors.cancerType
@@ -322,7 +335,7 @@ export function PatientIntakeForm() {
               htmlFor={cancerFieldId}
               className="block text-sm font-medium text-stone-800"
             >
-              Cancer type{' '}
+              Cancer type
             </label>
             <p className="text-xs text-stone-500">
               Search or choose from common types.
@@ -405,7 +418,7 @@ export function PatientIntakeForm() {
                 htmlFor={`${formId}-other-cancer`}
                 className="block text-sm font-medium text-stone-800"
               >
-                Please describe your cancer type{' '}
+                Please describe your cancer type
               </label>
               <input
                 id={`${formId}-other-cancer`}
@@ -435,7 +448,7 @@ export function PatientIntakeForm() {
               htmlFor={`${formId}-stage`}
               className="block text-sm font-medium text-stone-800"
             >
-              Stage{' '}
+              Stage
             </label>
             <select
               id={`${formId}-stage`}
@@ -472,7 +485,7 @@ export function PatientIntakeForm() {
               htmlFor={`${formId}-age`}
               className="block text-sm font-medium text-stone-800"
             >
-              Age{' '}
+              Age
             </label>
             <input
               id={`${formId}-age`}
@@ -504,7 +517,7 @@ export function PatientIntakeForm() {
               htmlFor={`${formId}-sex`}
               className="block text-sm font-medium text-stone-800"
             >
-              Sex assigned at birth{' '}
+              Sex assigned at birth
             </label>
             <select
               id={`${formId}-sex`}
@@ -539,20 +552,65 @@ export function PatientIntakeForm() {
               A few details
             </legend>
 
-            <ToggleRow
-              id={`${formId}-prior`}
-              label="I have had prior cancer treatment"
-              description="Chemotherapy, radiation, surgery, or similar."
-              pressed={priorCancerTreatment}
-              onPressedChange={setPriorCancerTreatment}
-            />
+            <div>
+              <p
+                id={`${formId}-prior-label`}
+                className="text-sm font-medium text-stone-800"
+              >
+                Have you had cancer treatment?
+              </p>
+              <p className="mt-0.5 text-xs leading-relaxed text-stone-500">
+                For example chemotherapy, radiation, surgery, or similar.
+              </p>
+              <div
+                className={`mt-3 flex flex-wrap gap-3 rounded-2xl p-1 ${
+                  errors.priorTreatment
+                    ? 'ring-2 ring-rose-300/90 ring-offset-2 ring-offset-violet-50/50'
+                    : ''
+                }`}
+                role="radiogroup"
+                aria-labelledby={`${formId}-prior-label`}
+                aria-invalid={Boolean(errors.priorTreatment)}
+                aria-describedby={
+                  errors.priorTreatment ? err.prior : undefined
+                }
+              >
+                <YesNoPill
+                  id={`${formId}-prior-yes`}
+                  selected={priorCancerTreatment === 'yes'}
+                  onSelect={() => {
+                    setPriorCancerTreatment('yes')
+                    clearFieldError('priorTreatment')
+                  }}
+                  label="Yes"
+                />
+                <YesNoPill
+                  id={`${formId}-prior-no`}
+                  selected={priorCancerTreatment === 'no'}
+                  onSelect={() => {
+                    setPriorCancerTreatment('no')
+                    clearFieldError('priorTreatment')
+                  }}
+                  label="No"
+                />
+              </div>
+              {errors.priorTreatment ? (
+                <p
+                  id={err.prior}
+                  className="mt-2 text-xs text-rose-600"
+                  role="alert"
+                >
+                  {errors.priorTreatment}
+                </p>
+              ) : null}
+            </div>
 
             <div className="border-t border-violet-200/40 pt-5">
               <p
                 id={`${formId}-onc-label`}
                 className="text-sm font-medium text-stone-800"
               >
-                Have you met with your oncologist yet?{' '}
+                Have you met with your oncologist yet?
               </p>
               <p className="mt-0.5 text-xs leading-relaxed text-stone-500">
                 We ask so we can match you with the right next steps.
@@ -631,55 +689,6 @@ export function PatientIntakeForm() {
           </div>
         </form>
       </div>
-    </div>
-  )
-}
-
-type ToggleRowProps = {
-  id: string
-  label: string
-  description: string
-  pressed: boolean
-  onPressedChange: (next: boolean) => void
-}
-
-function ToggleRow({
-  id,
-  label,
-  description,
-  pressed,
-  onPressedChange,
-}: ToggleRowProps) {
-  return (
-    <div className="flex items-start justify-between gap-4">
-      <div>
-        <label htmlFor={id} className="text-sm font-medium text-stone-800">
-          {label}
-        </label>
-        <p className="mt-0.5 text-xs leading-relaxed text-stone-500">
-          {description}
-        </p>
-      </div>
-      <button
-        id={id}
-        type="button"
-        role="switch"
-        aria-checked={pressed}
-        onClick={() => onPressedChange(!pressed)}
-        className={`relative h-8 w-14 shrink-0 rounded-full border transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-600 ${
-          pressed
-            ? 'border-violet-700 bg-violet-800'
-            : 'border-stone-300 bg-stone-200/80'
-        }`}
-      >
-        <span
-          className={`absolute top-0.5 left-0.5 h-7 w-7 rounded-full bg-white shadow-sm transition-transform ${
-            pressed ? 'translate-x-6' : 'translate-x-0'
-          }`}
-          aria-hidden
-        />
-        <span className="sr-only">{label}</span>
-      </button>
     </div>
   )
 }
