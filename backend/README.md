@@ -1,6 +1,6 @@
 # Color project — FastAPI backend
 
-Analyzes patient intake using RAG over `guidelines.json` and the Gemini API.
+Analyzes patient intake using RAG over Markdown files under `guidelines/` and the Gemini API.
 
 ## Prerequisites
 

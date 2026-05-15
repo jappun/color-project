@@ -17,9 +17,31 @@ from pydantic import BaseModel
 
 load_dotenv(Path(__file__).resolve().parent / ".env")
 
-GUIDELINES_PATH = Path(__file__).resolve().parent / "guidelines.json"
-with GUIDELINES_PATH.open(encoding="utf-8") as _gf:
-    GUIDELINES: dict[str, dict[str, str]] = json.load(_gf)
+_BACKEND_ROOT = Path(__file__).resolve().parent
+_GUIDELINES_DIR = _BACKEND_ROOT / "guidelines"
+
+
+def _load_guidelines() -> dict[str, dict[str, str]]:
+    """Load cancers from backend/guidelines/<type>/*.md or *.txt."""
+    chunks: dict[str, dict[str, str]] = {}
+    if not _GUIDELINES_DIR.is_dir():
+        return chunks
+    for cancer_dir in sorted(_GUIDELINES_DIR.iterdir()):
+        if not cancer_dir.is_dir():
+            continue
+        chunk: dict[str, str] = {}
+        for key in ("overview", "workup", "treatment", "questions"):
+            for name in (f"{key}.md", f"{key}.txt"):
+                fp = cancer_dir / name
+                if fp.is_file():
+                    chunk[key] = fp.read_text(encoding="utf-8").strip()
+                    break
+        if chunk:
+            chunks[cancer_dir.name] = chunk
+    return chunks
+
+
+GUIDELINES = _load_guidelines()
 
 # Default: lighter model with separate free-tier pool. Override with GEMINI_MODEL in .env.
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite").strip()
@@ -59,16 +81,23 @@ def _build_guidelines_context(cancer_type: str) -> str:
                 f"Supported types: {supported}."
             ),
         )
-    return json.dumps(chunk, ensure_ascii=False, indent=2)
+    # Only overview + treatment are sent to the model; questions/workup files are not used as RAG context.
+    slim = {k: chunk[k] for k in ("overview", "treatment") if k in chunk and chunk[k].strip()}
+    if not slim:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"Guidelines for '{cancer_type}' are missing overview and treatment text. "
+                "Add non-empty overview.md and treatment.md under backend/guidelines/<type>/."
+            ),
+        )
+    return json.dumps(slim, ensure_ascii=False, indent=2)
 
 
-WARM_TONE_INSTRUCTION = (
-    "Always use a warm, friendly, supportive tone: reassuring and human; explain any "
-    "necessary clinical terms in plain language without being vague or patronizing."
-)
 
-
-def _build_prompt(body: AnalyzeRequest, guidelines_json: str) -> str:
+def _build_prompt(body: AnalyzeRequest, specific_guidelines: str) -> str:
+    anxiety_raw = (body.anxiety or "").strip()
+    anxiety_line = anxiety_raw if anxiety_raw else "not provided"
     patient_bits = [
         f"Cancer type (for personalization): {body.cancerType}",
         f"Stage: {body.stage}",
@@ -76,33 +105,57 @@ def _build_prompt(body: AnalyzeRequest, guidelines_json: str) -> str:
         f"Sex assigned at birth: {body.sex if body.sex else 'not provided'}",
         f"Had prior cancer treatment: {body.hadPriorTreatment}",
         f"Has met with oncologist: {body.metOncologist}",
-        f"Patient's stated anxiety or concerns: {body.anxiety if body.anxiety else 'not provided'}",
+        f"Patient's stated anxiety or concerns: {anxiety_line}",
     ]
     patient_block = "\n".join(patient_bits)
+
+    anxiety_question_rules = ""
+    if anxiety_raw:
+        anxiety_question_rules = textwrap.dedent(
+            """
+
+            QUESTIONS VS ANXIETIES (required when anxieties are provided):
+            The patient shared free-text worries above. Infer every distinct anxiety theme (e.g. separate sentences,
+            lines, bullets, or comma/semicolon-separated worries each count when they express a different concern).
+            For each distinct theme, include at least one object in "questions" whose "question" field clearly and
+            directly addresses that theme (so the patient could recognize it as speaking to that worry). A single
+            coherent worry still requires at least one matching question. You may return more than five questions if
+            needed to cover every distinct theme while keeping other questions useful for their stage and cancer type.
+            """
+        ).strip()
 
     return textwrap.dedent(
         f"""
         You are a supportive oncology education assistant. Personalize using the patient context below.
-        {WARM_TONE_INSTRUCTION}
+        Always use a warm, friendly, supportive tone: reassuring and human; explain any necessary clinical terms in plain language without being vague or patronizing.
 
         PATIENT CONTEXT (use to tailor wording; do not invent clinical facts not implied by stage and type):
         {patient_block}
 
-        # GUIDELINES CONTEXT (RAG)
-        The following JSON is authoritative reference material from the care team knowledge base.
-        Ground your answer in it; do not contradict it. If something is not covered, say so briefly rather than guessing.
+        # GUIDELINES CONTEXT (authoritative reference)
+        The following JSON has only two keys from the care-team knowledge base: "overview" (disease overview) and
+        "treatment" (typical treatment themes). Ground "diagnosis" and "workup" in this material and the patient
+        context; do not contradict it. If something is not covered, say so briefly rather than guessing.
 
-        {guidelines_json}
+        {specific_guidelines}
 
         ---
 
-        Return ONLY valid JSON with no markdown fences, no preamble, and no trailing text. The JSON object must have exactly these three keys:
+        For the "questions" array, suggest questions the
+        patient could ask their oncologist by combining: (1) the overview and treatment reference above,
+        (2) the patient context (especially cancer type and stage), and (3) responsible, mainstream oncology knowledge
+        where it helps bridge gaps. Questions should be specific and practical, not generic filler.
+        {anxiety_question_rules}
+
+        Return ONLY valid JSON with no markdown fences, no preamble, and no trailing text. Do not use first-person pronouns like "I", "we" or "us". The JSON object must have exactly these three keys:
 
         1. "diagnosis": string — plain-language explanation of the patient's diagnosis (2-3 paragraphs). Avoid jargon unless you briefly define it.
 
-        2. "workup": array of 3-4 objects, each with "title" (string) and "explanation" (string) — likely next clinical steps consistent with the guidelines context.
+        2. "workup": array of 3-4 objects, each with "title" (string) and "explanation" (string) — likely next clinical steps consistent with the guidelines context and stage.
 
-        3. "questions": array of 4-5 objects, each with "question" (string), "whyAsk" (string), and "whatItMeans" (string) — questions the patient might ask their oncologist.
+        3. "questions": array of objects, each with "question" (string), "whyAsk" (string), and "whatItMeans" (string).
+        Include at least 4 questions. If anxieties were not provided, about 4-5 questions is appropriate. If anxieties
+        were provided, include enough questions to satisfy the anxiety rules above.
 
         Example shape (replace content; return only the JSON object):
         {{"diagnosis": "...", "workup": [{{"title":"...","explanation":"..."}}], "questions": [{{"question":"...","whyAsk":"...","whatItMeans":"..."}}]}}
@@ -143,8 +196,8 @@ def analyze(body: AnalyzeRequest) -> dict[str, Any]:
             detail="GEMINI_API_KEY is not set. Copy .env.example to .env and set your key.",
         )
 
-    guidelines_json = _build_guidelines_context(body.cancerType)
-    prompt = _build_prompt(body, guidelines_json)
+    specific_guidelines = _build_guidelines_context(body.cancerType)
+    prompt = _build_prompt(body, specific_guidelines)
 
     try:
         client = genai.Client(api_key=api_key)

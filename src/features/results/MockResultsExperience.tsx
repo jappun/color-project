@@ -6,7 +6,7 @@ import type {
 } from '../../lib/analyzeApi.ts'
 import { buildStreamPlan, visiblePartText, type StreamPlan } from './streamUtils.ts'
 
-const PAGE_LABELS = ['Your Diagnosis', "What's Next", 'Your Questions'] as const
+const PAGE_LABELS = ['Your Diagnosis', 'Your Questions'] as const
 
 const PAGE1_TITLE = 'Understanding Your Diagnosis'
 const PAGE1_SUB =
@@ -14,7 +14,7 @@ const PAGE1_SUB =
 
 const PAGE2_TITLE = 'What to Expect Next'
 const PAGE2_SUB =
-  'Based on your diagnosis, here are the steps your care team will likely take.'
+  'Based on your diagnosis, here are the steps your care team may take. These are only one possible plan and you should confirm with your care team. '
 
 const PAGE3_TITLE = 'Questions for Your Oncologist'
 const PAGE3_SUB =
@@ -96,7 +96,7 @@ export function MockResultsExperience({ data }: MockResultsExperienceProps) {
     <div className="relative w-full min-w-0 pb-28 sm:pb-24 lg:mx-auto lg:max-w-3xl">
       {showTabs ? (
         <nav
-          className="sticky top-0 z-40 -mx-1 mb-8 border-b border-violet-200/60 bg-[#f4f0fb]/90 px-1 pb-3 pt-1 backdrop-blur-md"
+          className="sticky top-0 z-40 -mx-1 mb-8 px-1 pb-3 pt-1"
           aria-label="Results sections"
         >
           <div className="flex flex-wrap gap-1 rounded-2xl bg-white/50 p-1 shadow-sm shadow-violet-950/5">
@@ -105,7 +105,7 @@ export function MockResultsExperience({ data }: MockResultsExperienceProps) {
                 key={label}
                 type="button"
                 onClick={() => goToPage(i)}
-                className={`min-h-[44px] flex-1 rounded-xl px-2 py-2.5 text-center text-xs font-medium transition sm:text-sm ${
+                className={`cursor-pointer min-h-[44px] flex-1 rounded-xl px-2 py-2.5 text-center text-xs font-medium transition sm:text-sm ${
                   displayPage === i
                     ? 'bg-violet-800 text-violet-50 shadow-md shadow-violet-950/20'
                     : 'text-stone-600 hover:bg-violet-100/80 hover:text-violet-950'
@@ -115,15 +115,6 @@ export function MockResultsExperience({ data }: MockResultsExperienceProps) {
               </button>
             ))}
           </div>
-          <p className="mt-3 text-center text-xs text-stone-500">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-100/80 px-3 py-1 text-violet-900/90">
-              <span
-                className="h-1.5 w-1.5 rounded-full bg-violet-500"
-                aria-hidden
-              />
-              You&apos;re all set — browse any section above.
-            </span>
-          </p>
         </nav>
       ) : null}
 
@@ -170,7 +161,7 @@ export function MockResultsExperience({ data }: MockResultsExperienceProps) {
           type="button"
           onClick={goNext}
           aria-label="Next page"
-          className="fixed bottom-5 right-4 z-50 flex h-14 min-h-[56px] w-14 min-w-[56px] items-center justify-center rounded-2xl border border-violet-700/30 bg-gradient-to-b from-violet-800 to-violet-950 text-xl font-semibold text-violet-50 shadow-lg shadow-violet-950/35 transition hover:from-violet-700 hover:to-violet-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-700 active:scale-[0.98] sm:bottom-8 sm:right-8"
+          className="cursor-pointer fixed bottom-5 right-4 z-50 flex h-14 min-h-[56px] w-14 min-w-[56px] items-center justify-center rounded-2xl border border-violet-700/30 bg-gradient-to-b from-violet-800 to-violet-950 text-xl font-semibold text-violet-50 shadow-lg shadow-violet-950/35 transition hover:from-violet-700 hover:to-violet-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-700 active:scale-[0.98] sm:bottom-8 sm:right-8"
         >
           →
         </button>

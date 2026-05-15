@@ -8,11 +8,8 @@ import {
 } from 'react'
 
 const CANCER_TYPES = [
-  { value: 'breast', label: 'Breast cancer' },
   { value: 'lung', label: 'Lung cancer' },
-  { value: 'colorectal', label: 'Colorectal cancer' },
   { value: 'prostate', label: 'Prostate cancer' },
-  { value: 'melanoma', label: 'Melanoma' },
   // { value: 'other', label: 'Other / not listed' },
 ] as const
 
@@ -382,7 +379,7 @@ export function PatientIntakeForm({ onSubmitSuccess }: PatientIntakeFormProps) {
                 }, 0)
               }}
               onKeyDown={handleCancerKeyDown}
-              placeholder="e.g. breast, lung…"
+              placeholder="e.g. lung, prostate…"
               className={cancerInputClass}
             />
             {cancerOpen && filteredCancerTypes.length > 0 ? (
@@ -418,35 +415,6 @@ export function PatientIntakeForm({ onSubmitSuccess }: PatientIntakeFormProps) {
               </p>
             ) : null}
           </div>
-
-          {/* {cancerType === 'other' ? (
-            <div className="space-y-2">
-              <label
-                htmlFor={`${formId}-other-cancer`}
-                className="block text-sm font-medium text-stone-800"
-              >
-                Please describe your cancer type
-              </label>
-              <input
-                id={`${formId}-other-cancer`}
-                type="text"
-                value={otherCancerDetail}
-                onChange={(e) => {
-                  setOtherCancerDetail(e.target.value)
-                  clearFieldError('otherCancer')
-                }}
-                placeholder="e.g. pancreatic, ovarian…"
-                aria-invalid={Boolean(errors.otherCancer)}
-                aria-describedby={errors.otherCancer ? err.other : undefined}
-                className={fieldShellClassName(Boolean(errors.otherCancer))}
-              />
-              {errors.otherCancer ? (
-                <p id={err.other} className="text-xs text-rose-600" role="alert">
-                  {errors.otherCancer}
-                </p>
-              ) : null}
-            </div>
-          ) : null} */}
 
           <div className="space-y-2">
             <label
@@ -677,14 +645,10 @@ export function PatientIntakeForm({ onSubmitSuccess }: PatientIntakeFormProps) {
               type="submit"
               disabled={isSubmitting}
               aria-busy={isSubmitting}
-              className="w-full rounded-2xl bg-gradient-to-b from-violet-800 to-violet-950 px-5 py-3.5 text-base font-semibold text-violet-50 shadow-md shadow-violet-950/35 transition hover:from-violet-700 hover:to-violet-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-700 active:translate-y-px disabled:pointer-events-none disabled:opacity-60"
+              className="cursor-pointer w-full rounded-2xl bg-gradient-to-b from-violet-800 to-violet-950 px-5 py-3.5 text-base font-semibold text-violet-50 shadow-md shadow-violet-950/35 transition hover:from-violet-700 hover:to-violet-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-700 active:translate-y-px disabled:pointer-events-none disabled:opacity-60"
             >
               {isSubmitting ? 'Analyzing…' : 'Continue'}
             </button>
-            <p className="mt-3 text-center text-xs text-stone-500">
-              Your answers are sent to the local analysis API only. Always
-              confirm medical decisions with your care team.
-            </p>
           </div>
         </form>
       </div>
