@@ -625,8 +625,7 @@ export function PatientIntakeForm({ onSubmitSuccess }: PatientIntakeFormProps) {
                 What are you most anxious about?
               </label>
               <p className="mt-1.5 text-sm leading-relaxed text-stone-500">
-                Whatever is on your mind is okay here — there is no wrong
-                answer. Optional.
+                Whatever is on your mind is okay here. From treatment options to lifestyle changes, we're here to help. Optional.
               </p>
               <textarea
                 id={`${formId}-anxiety`}
