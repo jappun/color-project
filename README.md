@@ -5,6 +5,8 @@ AI-powered intake for recently diagnosed cancer patients
 ### Live Demo
 [Link  soon]
 
+Note that backend service is run on Render's free tier, so you may need to wait for it to spin up.
+
 ---
 
 ### Why
@@ -41,5 +43,7 @@ One aspect I wanted to add is a sense of agency, which I aimed to achive through
 - Python
 - Gemini API
 - Cursor
+- Render
+- Vercel
 
 I chose this tech stack, because I am familiar with it and could quickly deploy a demo. I used Cursor to speed up development, especially for frontend tasks.
