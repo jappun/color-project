@@ -6,7 +6,7 @@ import type {
 } from '../../lib/analyzeApi.ts'
 import { buildStreamPlan, visiblePartText, type StreamPlan } from './streamUtils.ts'
 
-const PAGE_LABELS = ['Your Diagnosis', 'Your Questions'] as const
+const PAGE_LABELS = ['Overview', 'Treament','Questions'] as const
 
 const PAGE1_TITLE = 'Understanding Your Diagnosis'
 const PAGE1_SUB =

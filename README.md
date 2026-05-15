@@ -1,73 +1,45 @@
-# React + TypeScript + Vite
+# Color Post-Diagnosis Support Tool
+AI-powered intake for recently diagnosed cancer patients  
+---
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+### Live Demo
+[Link  soon]
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+### Why
 
-## React Compiler
+The purpose of this project is to demo a possible feature in Color's AI-focussed products.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Currently, Color's Cancer Copilot helps the care team do their work faster, but in the meantime the patient is still waiting. I was partly inspired by Color's existing product Color Assistant for breast cancer screening, since the AI also addresses questions brought up by the user. I thought this idea could be expanded to all patients. The feeling of waiting for answers can be anxiety-inducing and overwhelming so this tool is meant to alleviate some of the feelings sparked by uncertainity that a recently diagnosed patient may have.
 
-## Expanding the ESLint configuration
+One aspect I wanted to add is a sense of agency, which I aimed to achive through the Questions section. Navigating the healthcare system can feel confusing or like a foreign language. This section goes beyond information and into providing patients a sense of familarity in how to engage with their care team and feel active in their treatment plan.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+---
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### How It Works
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+1. Patient fills out an intake form
+2. Their input is sent to a FastAPI backend, which retrieves relevant clinical guidelines from a local knowledge base informed by cancer.org
+3. Gemini generates three personalized sections: a plain-language diagnosis explainer, possible next steps, and questions to bring to their oncologist
+4. Results are presented one section at a time, with tabs to revisit any section
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+---
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Future Implemtation
+- Only for patients right now. Create a similar flow for caregivers/family members.
+- Currently only includes two types of cancers. Broaden to all types.
+- A more sophisticated process (RAG) for generating answers. Currently pulls from some high-level information found on cancer.org.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+---
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+### Tech Stack
+- React
+- Vite
+- Typescript
+- FastAPI
+- Python
+- Gemini API
+- Cursor
+
+I chose this tech stack, because I am familiar with it and could quickly deploy a demo. I used Cursor to speed up development, especially for frontend tasks.
