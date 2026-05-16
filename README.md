@@ -3,11 +3,9 @@ AI-powered intake for recently diagnosed cancer patients
 ---
 
 ### Live Demo
-[Link  soon]
+https://color-project-wp5c.vercel.app/
 
 Note that backend service is run on Render's free tier, so you may need to wait for it to spin up.
-
----
 
 ### Why
 
@@ -17,8 +15,6 @@ Currently, Color's Cancer Copilot helps the care team do their work faster, but 
 
 One aspect I wanted to add is a sense of agency, which I aimed to achive through the Questions section. Navigating the healthcare system can feel confusing or like a foreign language. This section goes beyond information and into providing patients a sense of familarity in how to engage with their care team and feel active in their treatment plan.
 
----
-
 ### How It Works
 
 1. Patient fills out an intake form
@@ -26,14 +22,10 @@ One aspect I wanted to add is a sense of agency, which I aimed to achive through
 3. Gemini generates three personalized sections: a plain-language diagnosis explainer, possible next steps, and questions to bring to their oncologist
 4. Results are presented one section at a time, with tabs to revisit any section
 
----
-
 ### Future Implemtation
 - Only for patients right now. Create a similar flow for caregivers/family members.
 - Currently only includes two types of cancers. Broaden to all types.
 - A more sophisticated process (RAG) for generating answers. Currently pulls from some high-level information found on cancer.org.
-
----
 
 ### Tech Stack
 - React
@@ -46,4 +38,4 @@ One aspect I wanted to add is a sense of agency, which I aimed to achive through
 - Render
 - Vercel
 
-I chose this tech stack, because I am familiar with it and could quickly deploy a demo. I used Cursor to speed up development, especially for frontend tasks.
+I chose this tech stack, because I am familiar with it. I wanted to deploy quickly to validate my idea. I used Cursor to speed up development, especially for frontend tasks.
