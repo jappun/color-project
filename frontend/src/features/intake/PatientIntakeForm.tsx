@@ -316,11 +316,20 @@ export function PatientIntakeForm({ onSubmitSuccess }: PatientIntakeFormProps) {
 
   return (
     <div className="w-full min-w-0 lg:mx-auto lg:max-w-xl">
-      <div
-        role="status"
-        className="mb-6 rounded-2xl border border-violet-400/35 bg-violet-100/90 px-4 py-3 text-center text-sm font-medium text-violet-950 shadow-sm shadow-violet-950/10"
-      >
-        Demo mode — mock clinical data only.
+      <div className="mb-6 flex items-center gap-3 rounded-2xl border border-violet-400/35 bg-violet-100/90 px-4 py-3 shadow-sm shadow-violet-950/10 sm:gap-4">
+        <img
+          src="/color-full.png"
+          alt=""
+          className="h-9 w-auto shrink-0 object-contain object-left sm:h-10"
+        />
+        <div className="min-w-0 flex-1 text-left">
+          <p className="text-lg font-semibold leading-snug tracking-tight text-violet-950 sm:text-xl">
+            Post-Diagnosis Form
+          </p>
+          <p className="mt-0.5 text-sm font-normal leading-snug text-violet-900/70">
+            Feature Demo
+          </p>
+        </div>
       </div>
 
       <div className="rounded-3xl border border-stone-200/90 bg-white/90 p-6 shadow-xl shadow-violet-950/10 backdrop-blur-sm sm:p-8">
